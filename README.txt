@@ -1,3 +1,4 @@
+the data analysed in the project was too observe the differences for the development between the healthy t-cell and mutated t-cells(cancer) the data was taken for a puplic data library and both samples verboom and roels both samples was was also analysed using an illumina NGS for the sequencing data
 ”employed RNA-sequencing, ATAC–sequencing and ChIPmentation on well-defined thymocyte subsets that represent the continuum of human T cell”
 
 Data Type:
