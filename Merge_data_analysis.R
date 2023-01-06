@@ -1,152 +1,163 @@
-#data table pasted to variable 
+# Set the script's title and author
+title <- "Gene Expression Analysis"
+author <- "JosephAgiM"
+
+# Get the current date
+date <- Sys.time()
+
+# Loading necessary packages
+library(BiocManager)
+library(pheatmap)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(tidyr)
+library(clusterProfiler)
+library(pathview)
+
+# Read in data table and store it in a variable 
 Roels_GeneName <- read.table("AnnotedgeR_normcounts.tabular", header = T) 
-#data table pasted to variable 
+# Read in data table and store it in a variable 
 Roels_GeneID <- read.table("edgeR_normcounts.tabular", header = T) 
-#data table pasted to variable 
+# Read in data table and store it in a variable 
 Verboom_GeneName <- read.table("AnnotedgeR_Verboom.tabular", header = T)
-#data table pasted to variable 
+# Read in data table and store it in a variable 
 Verboom_GeneID <- read.table("edgeR_Verboom.tabular", header = T)
 
-#Gene name to replace EntrezID geneID
+# Replace the GeneID column with the SYMBOL column in Roels_GeneID data table
 Roels_GeneID$GeneID <- Roels_GeneName$SYMBOL
-#Gene name to replace EntrezID geneID
+# Replace the GeneID column with the SYMBOL column in Verboom_GeneID data table
 Verboom_GeneID$GeneID <- Verboom_GeneName$SYMBOL
 
 
-#Remove NA values through function omit.na()
+# Remove NA values from Roels_GeneID data table using the na.omit() function
 Roels_GeneID <- na.omit(Roels_GeneID)
+# Remove NA values from Verboom_GeneID data table using the na.omit() function
 Verboom_GeneID <- na.omit(Verboom_GeneID)
-# Merge the first data files column and add the other columns next to each other  
+# Merge the first columns of both data tables and add the other columns next to each other 
 merged_GeneID <- merge(Roels_GeneID, Verboom_GeneID, c(1))
 
-#Removing exes columns logFC, logCPM, F, P-value, FDR
+# Remove the logFC, logCPM, F, P-value, and FDR columns from the merged data table
 merged_GeneID <- merged_GeneID[-c(10:14)]
+# View the first few rows of the Roels_GeneID data table
 head(Roels_GeneID)
+# View the first few rows of the Verboom_GeneID data table
 head(Verboom_GeneID)
 
-# Moving GeneID column to rownames
+# Move the GeneID column to the rownames of the merged data table
 rownames(merged_GeneID) <- merged_GeneID$GeneID
-
-# Removing GeneID column from the merged data file
+# Remove the GeneID column from the merged data table
 merged_GeneID <- subset(merged_GeneID, select = -GeneID)
+# View the first few rows of the merged data table
 head(merged_GeneID)
 
-#renaming columns 
+# Rename the first four columns of the merged data table
 colnames(merged_GeneID)[c(1:4)] <- c("Verboom1","Verboom2","Verboom3","Verboom4")
+# Rename the last four columns of the merged data table
 colnames(merged_GeneID)[c(5:8)] <- c("Roels1","Roels2","Roels3","Roels4")
 
-#making new column with the means of the accociation numbers 
+# Creating new column with the means of Roels and Verboom data frames 
 merged_GeneID$RoelsMean <- rowMeans(merged_GeneID[,5:8])
 merged_GeneID$VerboomMean <- rowMeans(merged_GeneID[,1:4])
 
 
-#Getting p-value column for the GeneID row in a new data file P_Value  
+# Getting p-value column for the GeneID row in a new data frame P_Value  
 Pvalue <-  data.frame(Pvalue=rep(0,nrow(merged_GeneID)))
 
-#Getting p-value column for the GeneID row in a new data file P_Value
+# Assigning the row names of Pvalue to be the same as those of merged_GeneID
 rownames(Pvalue) <- rownames(merged_GeneID)
 
-
-# Looping  the t.test on each row = i for each sample type Roels and Verboom
+# Looping through the t.test on each row (i) for each sample type (Roels and Verboom)
+# and storing the resulting p-values in Pvalue$Pvalue
 for (i in 1:nrow(merged_GeneID)) {
   Pvalue$Pvalue[i] <- t.test(merged_GeneID[i,1:4], merged_GeneID[i,5:8], alternative = "two.sided")$p.value
 }
 
-#Removing the P-values over 0.05
+# Removing rows with P-values over 0.05 and storing the remaining rows in signPvalue
 signPvalue <- Pvalue[Pvalue$Pvalue < 0.05, , drop= F]
 
-#adjusting p-value through p.adjust
+# Adjusting p-values using the Benjamini-Hochberg method and storing the results in a new data frame
 AdjustedPvalue <- data.frame(AdjustedPvalue = p.adjust(Pvalue[,"Pvalue"], method = "BH"))
 
-# adding the rownames of geens 
+# Assigning the row names of AdjustedPvalue to be the same as those of Pvalue
 rownames(AdjustedPvalue) <- rownames(Pvalue)
 
-#Removing the P-values over 0.05
+# Removing rows with adjusted P-values over 0.05 and storing the remaining rows in AdjustedPvalue
 AdjustedPvalue <- AdjustedPvalue[AdjustedPvalue$AdjustedPvalue < 0.05,  ,drop = F] 
 
-#creating a vector for the significant genes trough the significant p-value
+# Creating a vector of the significant genes based on the significant p-values
 signGenes <- rownames(AdjustedPvalue)
 
-#Subseting the merge_GeneID through signif_genes
+# Subsetting merged_GeneID based on the significant genes and storing the result in signGenesTable
 signGenesTable <- subset(merged_GeneID, rownames(merged_GeneID) %in% signGenes)
 
-#changing dataframe to matrix from table 
+# Converting signGenesTable to a matrix
 signGenesMatrix <- data.matrix(signGenesTable)
 
-#observing heatmap with all the genes 
+# Visualizing signGenesMatrix using a heatmap
 heatmap(signGenesMatrix)
 
-library(pheatmap)
 
-# prettier heatmap with all the genes
+# Visualizing signGenesMatrix using a prettier heatmap
 pheatmap(signGenesMatrix)
 
-
-#adjustPvalue and FClog in a data frame
-
-#adjusting p-value through p.adjust
+# Adjusting p-values using the Benjamini-Hochberg method and storing the results in a new data frame
 AdjustedPvalueOFClog <- data.frame(AdjustedPvalue = p.adjust(Pvalue[,"Pvalue"], method = "BH"))
 
+# Assigning the row names of AdjustedPvalueOFClog to be the same as those of Pvalue
 rownames(AdjustedPvalueOFClog) <- rownames(Pvalue)
 
-#adding samples from merg data
-
-#Calculating the FClog
+# Calculating the fold change (FClog) and storing it in AdjustedPvalueOFClog$FClog
 AdjustedPvalueOFClog$FClog <- rowMeans(merged_GeneID[,1:4]) - rowMeans(merged_GeneID[,5:8])
 
 #viewing too dataframe
 head(AdjustedPvalueOFClog)
 
+# Adding the first eight columns of merged_GeneID to AdjustedPvalueOFClog
 AdjustedPvalueOFClog[,3:10] <- merged_GeneID[,1:8]
-#Removing genes with FClog = NaN
 
-#filter the p-values again
+# Filtering AdjustedPvalueOFClog to only include rows with adjusted P-values less than 0.05
 signPvalue1 <- AdjustedPvalueOFClog[AdjustedPvalueOFClog$AdjustedPvalue < 0.05, , drop = F]
-# Re-Order based on FClog
+
+# Re-ordering signPvalue1 based on FClog
 signPvalue1 <- signPvalue1[order(signPvalue1$FClog), , drop = F]
 
-# get top ten and last 10 genes in row
+# Selecting the top and bottom 10 rows of signPvalue1
 topBottomGenes <- signPvalue1[c(1:10, 4229:4238),1:10]
-# put FClog data  in a data frame and adjusted p value
-FClog_count <- data.frame(AdjustedPvalueOFClog$FClog)
-loneAdjustedP <- data.frame(AdjustedPvalueOFClog$AdjustedPvalue)
-# creating a carachter format
-#topBottomGenes_Char <- merged_GeneID[1:8]
 
-#removing the two first columns
+# Removing the first two columns of topBottomGenes
 topBottomGenes_tabl <- topBottomGenes[-c(1:2)]
 
-# forming  dataframe into matrix
+# Converting topBottomGenes_tabl to a matrix
 topBottomGenes_Matr <- data.matrix(topBottomGenes_tabl)
 
-
-#making heat map 
+# Visualizing topBottomGenes_Matr using a heatmap
 pheatmap(topBottomGenes_Matr)
 
-
-# prepare rownames as genename column  for plot  
+# Preparing the row names (gene names) of topBottomGenes_tabl as a column called GeneNames
 topBottomGenes_tabl$GeneNames <- rownames(topBottomGenes_tabl)
 
-
-#calculate the mean of the different columns belonging to the different sample sets 
+# Calculate the mean of the first four columns (belonging to the Verboom sample set) 
+# and store the result in topBottomGenes_tabl$VerboomMean
 topBottomGenes_tabl$VerboomMean <- rowMeans(topBottomGenes_tabl[,1:4]) 
+
+# Calculate the mean of the last four columns (belonging to the Roels sample set) 
+# and store the result in topBottomGenes_tabl$RoelsMean
 topBottomGenes_tabl$RoelsMean <- rowMeans(topBottomGenes_tabl[,5:8])
 
-library(ggplot2)
-library(ggrepel)
-#plotting the means of the different columns belonging to  the different sample sets 
+# Plot the means of the Verboom and Roels sample sets using a scatterplot
 ggplot(topBottomGenes_tabl, aes(x=VerboomMean, y=RoelsMean, label=GeneNames))+
-  geom_point()+
-  geom_abline(intercept = 0)+
-  theme_bw()+
-  ggtitle(label="Top 10 up and downregulated genes")+
-  aes(color = VerboomMean)+ #deciding density color change across axis of the graph by the name of the columns defining either the x-axis or y-axis Verboom or Roels 
-  geom_text_repel()+
-  theme(plot.title = element_text(hjust = 0.5, size=20))
+  geom_point()+  # add points to the plot
+  geom_abline(intercept = 0)+  # add a line with intercept 0
+  theme_bw()+  # use a black and white theme
+  ggtitle(label="Top 10 up and downregulated genes")+  # add a title to the plot
+  aes(color = VerboomMean)+  # color the points based on VerboomMean
+  geom_text_repel()+  # add labels to the points, avoiding overlap
+  theme(plot.title = element_text(hjust = 0.5, size=20))  # adjust the title size and alignment
 
-AdjustedPvalueOFClog_1 <- AdjustedPvalueOFClog[-c(3:10)] 
+# Remove eight columns of AdjustedPvalueOFClog and store the result of 2 first columns in AdjustedPvalueOFClog_1
+AdjustedPvalueOFClog_1 <- AdjustedPvalueOFClog[-c(3:10)]
 
-library(dplyr)
 # Standard volcano plot
 Vulkan <- AdjustedPvalueOFClog_1 %>%
   ggplot(mapping = aes(x=FClog, y=-log10(AdjustedPvalue)))+
@@ -186,17 +197,16 @@ Vulkan3 <- Vulkan2+
 Vulkan3
 
 
-# viewing data
+# Viewing data
 dim(merged_GeneID) # number of rows and columns    
 head(merged_GeneID) # console logs dataframe
 
-library(tidyr)
 
-#  plot two genes only
+# Plot two genes only
 TwoGenes <- merged_GeneID[c("ATF3", "NDNF"),]
 TwoGenes$genenames <- rownames(TwoGenes)
 
-# get my data into a long format
+# Get my data into a long format
 
 TwoGenes_boxPlot <-gather(TwoGenes, key="samples", value="values", -c(VerboomMean, RoelsMean, genenames))
 TwoGenes_boxPlot$group <- rep(c("Roels", "Verboom"), each=8)
@@ -208,7 +218,7 @@ TwoGenes_boxPlot$group <- rep(c("Roels", "Verboom"), each=8)
 
 
 
-# use the long data for plotting a boxplot
+# Use the long data for plotting a boxplot
 
 ggplot(TwoGenes_boxPlot, aes(x=genenames, y=values, fill=group))+
   geom_boxplot()+
@@ -216,18 +226,16 @@ ggplot(TwoGenes_boxPlot, aes(x=genenames, y=values, fill=group))+
   theme_light()
 
 
-#fixing dataframe
-#data table pasted to object
+# Fixing dataframe
+# Data table pasted to object
 keggObject <- read.table("edgeR_Verboom.tabular", header = T)
 # Differential Expressed Genes
 # Keep only DEGs using a threshold of adjusted P < 0.05
 degs <- keggObject[keggObject$FDR < 0.05, ]
 
-#making an character object for the backround genes
+# Creating a character object for the backround genes
 keggGene <- keggObject$GeneID
 keggGene <- as.character(keggGene)
-
-library(clusterProfiler)
 
 # KEGG pathway enrichment for top 1000 DEGs
 kegg_enrich <- enrichKEGG(gene = degs$GeneID[1:1000], 
@@ -238,11 +246,9 @@ kegg_enrich <- enrichKEGG(gene = degs$GeneID[1:1000],
                           universe = keggGene) # Background genes
 View(kegg_enrich@result)
 
-# plotting the top 10 significant KEGG pathways 
+# Plotting the top 10 significant KEGG pathways 
 dotplot(kegg_enrich, x = "Count", showCategory = 10, orderBy = "Count", title = "Top significant KEGG pathways")
 
-
-library(pathview)
 
 # Create a list of logFCs with their corresponding genes as names
 FClog <- keggObject$logFC
